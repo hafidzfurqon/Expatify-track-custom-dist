@@ -1,0 +1,32 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npx prisma generate && npx react-router build",
+  "installCommand": "npm install",
+  "outputDirectory": "build/client",
+  "framework": null,
+  "regions": ["sin1"],
+  "functions": {
+    "api/index.mjs": {
+      "memory": 1024,
+      "maxDuration": 30,
+      "includeFiles": "build/server/**,node_modules/.prisma/**,node_modules/@prisma/client/**,prisma/**"
+    }
+  },
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index"
+    }
+  ]
+}
