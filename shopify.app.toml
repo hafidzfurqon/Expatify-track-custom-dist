@@ -1,0 +1,56 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "60a9016eb3603871fc9a16eb617636dc"
+name = "exp-track-custom-distribute"
+application_url = "https://expatify-track.vercel.app"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2026-01"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "customer_read_draft_orders,customer_read_metaobjects,customer_read_orders,customer_write_orders,read_assigned_fulfillment_orders,read_draft_orders,read_fulfillments,read_locations,read_merchant_managed_fulfillment_orders,read_metaobject_definitions,read_metaobjects,read_order_edits,read_orders,read_product_feeds,read_product_listings,read_products,read_shipping,read_third_party_fulfillment_orders,unauthenticated_read_metaobjects,unauthenticated_read_product_inventory,unauthenticated_read_product_listings,unauthenticated_read_product_pickup_locations,unauthenticated_read_product_tags,write_assigned_fulfillment_orders,write_draft_orders,write_fulfillments,write_locations,write_merchant_managed_fulfillment_orders,write_metaobject_definitions,write_metaobjects,write_order_edits,write_orders,write_product_feeds,write_product_listings,write_products,write_shipping,write_third_party_fulfillment_orders"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://expatify-track.vercel.app/auth/callback",
+  "https://expatify-track.vercel.app/auth/login"
+]
+
+[product.metafields.app.demo_info]
+type = "single_line_text_field"
+name = "Demo Source Info"
+description = "Tracks products created by the Shopify app template for development"
+
+  [product.metafields.app.demo_info.access]
+  admin = "merchant_read_write"
+
+[metaobjects.app.example]
+name = "Example"
+description = "An example metaobject definition created by this template"
+
+  [metaobjects.app.example.access]
+  admin = "merchant_read_write"
+
+[metaobjects.app.example.fields.title]
+name = "Title"
+type = "single_line_text_field"
+required = true
+
+[metaobjects.app.example.fields.description]
+name = "Description"
+type = "multi_line_text_field"

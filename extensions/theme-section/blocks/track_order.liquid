@@ -1,0 +1,1376 @@
+<div class="container-parent" style="padding-top: {{ block.settings.padding_top }}px; padding-bottom: {{ block.settings.padding_bottom }}px; margin-top: {{ block.settings.margin_top }}px; margin-bottom: {{ block.settings.margin_bottom }}px;">
+  <div class="tracking-container">
+    <div class="tracking-card">
+      <div class="tracking-header">
+        <div class="tracking-logo">
+          <!-- SVG LOGO SAMA -->
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M12 6V12L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </div>
+        <h1>Track Your Order</h1>
+        <p class="subtitle">Enter your tracking number to check delivery status</p>
+      </div>
+
+      <!-- Search Form -->
+      <div
+        id="tracking-form"
+        class="tracking-form {% if request.query_string contains 'tracking_number' %}hidden{% endif %}"
+      >
+        <!-- Courier Selection -->
+        <div class="form-field">
+          <label for="courier-select" class="form-label">Select Courier</label>
+          <div class="select-wrapper">
+            <select id="courier-select" class="form-select">
+              <optgroup label="Direct Tracking (AWB Only)">
+                <option value="tiki" selected>TIKI</option>
+                <option value="jnt">J&amp;T Express</option>
+                <option value="ninja">Ninja Xpress</option>
+                <option value="ide">ID Express</option>
+                <option value="lion">Lion Parcel</option>
+                <option value="sap">SAP Express</option>
+                <option value="anteraja">AnterAja</option>
+                <option value="wahana">Wahana</option>
+                <option value="pos">Pos Indonesia</option>
+                <option value="sentral">Sentral Cargo</option>
+                <option value="sicepat">SiCepat Express</option>
+                {% comment %} <option value="spx">Shopee Express (SPX)</option> {% endcomment %}
+              </optgroup>
+              <optgroup label="Requires Phone Verification">
+                <option value="jne">JNE (last 5 digits phone)</option>
+              </optgroup>
+            </select>
+            <div class="select-arrow">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- AWB Input -->
+        <div class="form-field">
+          <label for="tracking-input" class="form-label">Tracking Number</label>
+          <div class="input-group">
+            <div class="input-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20 12H4" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+                <path d="M20 6H12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+                <path d="M20 18H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </div>
+            <input type="text" id="tracking-input" placeholder="Enter tracking number (e.g. 123456789)" />
+          </div>
+        </div>
+
+        <!-- Phone Number (conditional, shown for JNE/J&T/Sentral) -->
+        <div id="phone-group" class="form-field phone-group" style="display:none;">
+          <label class="form-label" id="phone-label">Last 5 digits of recipient's phone number</label>
+          <div class="phone-notice">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M12 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path d="M12 8H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+            </svg>
+            <span id="phone-notice-text">This courier requires phone verification for tracking.</span>
+          </div>
+          <div class="otp-container" id="otp-container">
+            <!-- OTP digit boxes will be generated dynamically by JS -->
+          </div>
+        </div>
+
+        <!-- Track Button -->
+        <button onclick="updateTracking()" class="btn-track btn-track-full">
+          <span>Track Order</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M12 5L19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Loading State -->
+      <div
+        id="tracking-loading"
+        class="tracking-loading {% if request.query_string contains 'tracking_number' %}{% else %}hidden{% endif %}"
+      >
+        <div class="loading-spinner">
+          <div class="spinner"></div>
+        </div>
+        <p>Loading shipment data...</p>
+      </div>
+
+      <!-- Error State -->
+      <div id="tracking-error" class="tracking-error hidden">
+        <div class="error-icon">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M12 8V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M12 16H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+        </div>
+        <p>Failed to retrieve data. Please try again.</p>
+        <button onclick="updateTracking()" class="btn-retry">Try Again</button>
+      </div>
+
+      <!-- Results Container -->
+      <div id="tracking-container" class="result-container hidden">
+        <!-- Package info -->
+        <div class="package-info">
+          <div class="info-card">
+            <div class="card-header">
+              <h3>Shipment Details</h3>
+              <span class="badge" id="status">-</span>
+            </div>
+            <div class="info-row">
+              <div class="info-label">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M21 16V8.00002C20.9996 7.6493 20.9071 7.30483 20.7315 7.00119C20.556 6.69754 20.3037 6.44539 20 6.27002L13 2.27002C12.696 2.09449 12.3511 2.00208 12 2.00208C11.6489 2.00208 11.304 2.09449 11 2.27002L4 6.27002C3.69626 6.44539 3.44398 6.69754 3.26846 7.00119C3.09294 7.30483 3.00036 7.6493 3 8.00002V16C3.00036 16.3508 3.09294 16.6952 3.26846 16.9989C3.44398 17.3025 3.69626 17.5547 4 17.73L11 21.73C11.304 21.9056 11.6489 21.998 12 21.998C12.3511 21.998 12.696 21.9056 13 21.73L20 17.73C20.3037 17.5547 20.556 17.3025 20.7315 16.9989C20.9071 16.6952 20.9996 16.3508 21 16Z"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M3.27002 6.96002L12 12.01L20.73 6.96002" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M12 22.08V12" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+                <span>Tracking Number</span>
+              </div>
+              <div class="info-value" id="resi">-</div>
+            </div>
+            <div class="info-row">
+              <div class="info-label">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M16 3H1V16H16V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                  <path d="M16 8H20L23 11V16H16V8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                  <path
+                    d="M5.5 21C6.88071 21 8 19.8807 8 18.5C8 17.1193 6.88071 16 5.5 16C4.11929 16 3 17.1193 3 18.5C3 19.8807 4.11929 21 5.5 21Z"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  <path
+                    d="M18.5 21C19.8807 21 21 19.8807 21 18.5C21 17.1193 19.8807 16 18.5 16C17.1193 16 16 17.1193 16 18.5C16 19.8807 17.1193 21 18.5 21Z"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>Courier</span>
+              </div>
+              <div class="info-value" id="kurir">-</div>
+            </div>
+            {% comment %}
+              <div class="info-row">
+                <div class="info-label">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                      d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M12 6V12L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                      stroke-linejoin="round" />
+                  </svg>
+                  <span>Estimated Arrival</span>
+                </div>
+                <div class="info-value highlight" id="estimasi">-</div>
+              </div>
+            {% endcomment %}
+          </div>
+        </div>
+        <!-- Timeline -->
+        <div class="timeline-section">
+          <h3>Shipment History</h3>
+          <div class="timeline" id="tracking-timeline"></div>
+        </div>
+
+        <!-- Reset Button -->
+        <div class="reset-section">
+          <button onclick="resetTracking()" class="btn-reset">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 4V10H7" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path
+                d="M3.51 15C4.15839 16.8404 5.38734 18.4202 7.01166 19.5014C8.63598 20.5826 10.5677 21.1066 12.5157 20.9945C14.4637 20.8824 16.3226 20.1402 17.8121 18.8798C19.3017 17.6193 20.3413 15.9090 20.7742 14.0064C21.2072 12.1037 21.0101 10.1119 20.2126 8.33109C19.4152 6.55025 18.0605 5.07674 16.3528 4.13272C14.6451 3.18871 12.6769 2.82521 10.7447 3.09711C8.81245 3.36901 7.02091 4.26142 5.64 5.64L1 10"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <span>Track Another Order</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.addEventListener('load', function () {
+    const formEl = document.getElementById('tracking-form');
+    const loadingEl = document.getElementById('tracking-loading');
+    const errorEl = document.getElementById('tracking-error');
+    const containerEl = document.getElementById('tracking-container');
+    const resiEl = document.getElementById('resi');
+    const kurirEl = document.getElementById('kurir');
+    const statusEl = document.getElementById('status');
+    const timelineEl = document.getElementById('tracking-timeline');
+    const trackingInput = document.getElementById('tracking-input');
+    const courierSelect = document.getElementById('courier-select');
+    const phoneGroup = document.getElementById('phone-group');
+    const otpContainer = document.getElementById('otp-container');
+    const phoneLabel = document.getElementById('phone-label');
+    const phoneNoticeText = document.getElementById('phone-notice-text');
+    let currentOtpDigits = 0;
+
+    // Couriers that require last digits of recipient's phone number
+    const COURIER_PHONE_DIGITS = {
+      jne: 5,
+    };
+
+    const COURIER_NAMES = {
+      jne: 'JNE',
+    };
+
+    // Build OTP digit boxes
+    function buildOtpBoxes(count) {
+      otpContainer.innerHTML = '';
+      for (let i = 0; i < count; i++) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.inputMode = 'numeric';
+        input.pattern = '[0-9]';
+        input.maxLength = 1;
+        input.className = 'otp-box';
+        input.dataset.index = i;
+        input.setAttribute('aria-label', `Digit ${i + 1} of ${count}`);
+
+        // Auto-advance on input
+        input.addEventListener('input', function (e) {
+          const val = this.value.replace(/[^0-9]/g, '');
+          this.value = val;
+          if (val && i < count - 1) {
+            otpContainer.children[i + 1].focus();
+          }
+          // If all filled, auto-submit-ready visual
+          updateOtpFilledState(count);
+        });
+
+        // Handle backspace to go to previous box
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Backspace' && !this.value && i > 0) {
+            otpContainer.children[i - 1].focus();
+            otpContainer.children[i - 1].value = '';
+            e.preventDefault();
+          }
+          if (e.key === 'Enter') {
+            updateTracking();
+          }
+          // Arrow keys navigation
+          if (e.key === 'ArrowLeft' && i > 0) {
+            otpContainer.children[i - 1].focus();
+            e.preventDefault();
+          }
+          if (e.key === 'ArrowRight' && i < count - 1) {
+            otpContainer.children[i + 1].focus();
+            e.preventDefault();
+          }
+        });
+
+        // Handle paste across all boxes
+        input.addEventListener('paste', function (e) {
+          e.preventDefault();
+          const pasteData = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g, '');
+          for (let j = 0; j < count && j < pasteData.length; j++) {
+            otpContainer.children[j].value = pasteData[j];
+          }
+          const focusIdx = Math.min(pasteData.length, count) - 1;
+          if (focusIdx >= 0) otpContainer.children[focusIdx].focus();
+          updateOtpFilledState(count);
+        });
+
+        // Focus highlight
+        input.addEventListener('focus', function () {
+          this.select();
+        });
+
+        otpContainer.appendChild(input);
+      }
+      currentOtpDigits = count;
+    }
+
+    // Visual feedback when all OTP boxes are filled
+    function updateOtpFilledState(count) {
+      const allFilled = getOtpValue().length === count;
+      otpContainer.classList.toggle('otp-filled', allFilled);
+    }
+
+    // Get combined value from all OTP boxes
+    function getOtpValue() {
+      let val = '';
+      const boxes = otpContainer.querySelectorAll('.otp-box');
+      boxes.forEach((b) => {
+        val += b.value;
+      });
+      return val;
+    }
+
+    // Set OTP value (for URL params restore)
+    function setOtpValue(value) {
+      const boxes = otpContainer.querySelectorAll('.otp-box');
+      for (let i = 0; i < boxes.length && i < value.length; i++) {
+        boxes[i].value = value[i];
+      }
+    }
+
+    // Clear OTP boxes
+    function clearOtpBoxes() {
+      const boxes = otpContainer.querySelectorAll('.otp-box');
+      boxes.forEach((b) => {
+        b.value = '';
+      });
+      otpContainer.classList.remove('otp-filled');
+    }
+
+    // Show/hide phone input based on selected courier
+    function updatePhoneFieldVisibility() {
+      const courier = courierSelect.value;
+      const requiredDigits = COURIER_PHONE_DIGITS[courier];
+      if (requiredDigits) {
+        const courierName = COURIER_NAMES[courier] || courier.toUpperCase();
+        phoneLabel.textContent = `Last ${requiredDigits} digits of recipient's phone number`;
+        phoneNoticeText.textContent = `${courierName} requires the last ${requiredDigits} digits of the recipient's phone number for tracking.`;
+        // Rebuild OTP boxes if digit count changed
+        if (currentOtpDigits !== requiredDigits) {
+          buildOtpBoxes(requiredDigits);
+        }
+        phoneGroup.style.display = 'block';
+        requestAnimationFrame(() => {
+          phoneGroup.style.opacity = '1';
+          phoneGroup.style.transform = 'translateY(0)';
+        });
+      } else {
+        phoneGroup.style.opacity = '0';
+        phoneGroup.style.transform = 'translateY(-10px)';
+        setTimeout(() => {
+          phoneGroup.style.display = 'none';
+        }, 250);
+        clearOtpBoxes();
+      }
+    }
+
+    courierSelect.addEventListener('change', updatePhoneFieldVisibility);
+    // Initialize on load
+    updatePhoneFieldVisibility();
+
+    function mapStatusClass(statusRaw) {
+      const status = (statusRaw || '').toLowerCase();
+      if (status.includes('deliver')) return 'success';
+      if (status.includes('transit') || status.includes('on process') || status.includes('process')) return 'progress';
+      if (status.includes('hold') || status.includes('problem')) return 'error';
+      if (status.includes('cancel') || status.includes('reject')) return 'error';
+      return 'info';
+    }
+
+    function formatStatusLabel(statusRaw) {
+      if (!statusRaw) return 'Unknown';
+      if (statusRaw.toUpperCase() === 'DELIVERED') return 'Delivered';
+      if (statusRaw.toUpperCase() === 'ON PROCESS') return 'In Process';
+      if (statusRaw.toUpperCase() === 'ON TRANSIT') return 'In Transit';
+      return statusRaw.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+    }
+
+    // Main function to fetch tracking data from RajaOngkir Proxy
+    async function fetchTrackingInfo(trackingNumber, courier, lastPhoneNumber) {
+      if (!trackingNumber) {
+        loadingEl.textContent = 'Please enter a tracking number first.';
+        loadingEl.classList.remove('hidden');
+        errorEl.classList.add('hidden');
+        containerEl.classList.add('hidden');
+        formEl.classList.remove('hidden');
+        return;
+      }
+      try {
+        loadingEl.classList.remove('hidden');
+        errorEl.classList.add('hidden');
+        containerEl.classList.add('hidden');
+        formEl.classList.add('hidden');
+
+        const requestBody = {
+          awb: trackingNumber,
+          courier: courier,
+        };
+        // Only include last_phone_number if the courier requires it
+        if (lastPhoneNumber) {
+          requestBody.last_phone_number = lastPhoneNumber;
+        }
+
+        const res = await fetch('https://jubelio-proxy-6m9y.vercel.app/api/tracking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        });
+        const data = await res.json();
+
+        if (!data || !data.data || !data.meta || data.meta.code !== 200)
+          throw new Error(data?.meta?.message || 'Unknown API error');
+
+        loadingEl.classList.add('hidden');
+        containerEl.classList.remove('hidden');
+
+        const summary = data.data.summary;
+
+        resiEl.textContent = summary.waybill_number || '-';
+        kurirEl.textContent = summary.courier_name || '-';
+        statusEl.textContent = formatStatusLabel(summary.status) || '-';
+        statusEl.className = `badge ${mapStatusClass(summary.status)}`;
+
+        timelineEl.innerHTML = '';
+        if (data.data.manifest && Array.isArray(data.data.manifest)) {
+          const sortedHistory = [...data.data.manifest].sort((a, b) => {
+            const dateA = new Date(`${a.manifest_date}T${a.manifest_time}`);
+            const dateB = new Date(`${b.manifest_date}T${b.manifest_time}`);
+            return dateB - dateA;
+          });
+          sortedHistory.forEach((item, index) => {
+            const date = new Date(`${item.manifest_date}T${item.manifest_time}`);
+            const time = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            const day = date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+
+            let desc = item.manifest_description && item.manifest_description.trim();
+            let city = item.city_name && item.city_name.trim();
+            let note = '';
+            if (desc && city) {
+              note = `${desc} - ${city}`;
+            } else if (desc) {
+              note = desc;
+            } else if (city) {
+              note = city;
+            } else {
+              note = '-';
+            }
+
+            const timelineItem = document.createElement('div');
+            timelineItem.className = `timeline-item ${index === 0 ? 'active' : ''}`;
+            timelineItem.innerHTML = `
+            <div class="timeline-point"></div>
+            <div class="timeline-content">
+              <div class="timeline-date">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M12 6V12L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                ${day} - ${time}
+              </div>
+              <p class="timeline-note">${note}</p>
+            </div>
+          `;
+            timelineEl.appendChild(timelineItem);
+          });
+        } else {
+          timelineEl.innerHTML = `<div class="timeline-item">
+          <div class="timeline-point"></div>
+          <div class="timeline-content"><p class="timeline-note">Tracking history not available.</p></div>
+        </div>`;
+        }
+        setTimeout(() => {
+          const items = document.querySelectorAll('.timeline-item');
+          items.forEach((item, i) => {
+            setTimeout(() => {
+              item.style.opacity = '1';
+            }, i * 150);
+          });
+        }, 300);
+      } catch (err) {
+        loadingEl.classList.add('hidden');
+        errorEl.classList.remove('hidden');
+        errorEl.querySelector('p').textContent = 'Failed to retrieve data: ' + err.message;
+        containerEl.classList.add('hidden');
+        formEl.classList.remove('hidden');
+      }
+    }
+
+    // Manual submit with validation
+    window.updateTracking = function () {
+      const trackingNumber = trackingInput.value.trim();
+      const courier = courierSelect.value;
+      const requiredDigits = COURIER_PHONE_DIGITS[courier];
+      let lastPhoneNumber = null;
+
+      if (!trackingNumber) {
+        errorEl.classList.remove('hidden');
+        errorEl.querySelector('p').textContent = 'Tracking number cannot be empty';
+        loadingEl.classList.add('hidden');
+        containerEl.classList.add('hidden');
+        return;
+      }
+
+      // Validate phone number if courier requires it
+      if (requiredDigits) {
+        const phoneVal = getOtpValue();
+        if (!phoneVal || phoneVal.length !== requiredDigits) {
+          errorEl.classList.remove('hidden');
+          const courierName = COURIER_NAMES[courier] || courier.toUpperCase();
+          const missing = requiredDigits - phoneVal.length;
+          errorEl.querySelector('p').textContent =
+            phoneVal.length === 0
+              ? `${courierName} requires the last ${requiredDigits} digits of the recipient's phone number.`
+              : `Please enter all ${requiredDigits} digits (${missing} remaining).`;
+          loadingEl.classList.add('hidden');
+          containerEl.classList.add('hidden');
+          // Focus first empty box
+          const boxes = otpContainer.querySelectorAll('.otp-box');
+          for (let i = 0; i < boxes.length; i++) {
+            if (!boxes[i].value) {
+              boxes[i].focus();
+              break;
+            }
+          }
+          otpContainer.classList.add('otp-error');
+          setTimeout(() => otpContainer.classList.remove('otp-error'), 2000);
+          return;
+        }
+        lastPhoneNumber = phoneVal;
+      }
+
+      // Build URL with params
+      let newUrl = `${window.location.pathname}?tracking_number=${encodeURIComponent(
+        trackingNumber
+      )}&courier=${encodeURIComponent(courier)}`;
+      if (lastPhoneNumber) {
+        newUrl += `&phone=${encodeURIComponent(lastPhoneNumber)}`;
+      }
+      window.history.pushState({}, '', newUrl);
+      fetchTrackingInfo(trackingNumber, courier, lastPhoneNumber);
+    };
+
+    // Press Enter on tracking input
+    trackingInput.addEventListener('keyup', function (event) {
+      if (event.key === 'Enter') updateTracking();
+    });
+
+    // Auto-run if tracking_number in URL
+    const params = new URLSearchParams(window.location.search);
+    const trackingNumber = params.get('tracking_number');
+    const courierParam = params.get('courier');
+    const phoneParam = params.get('phone');
+    if (trackingNumber) {
+      trackingInput.value = trackingNumber;
+      if (courierParam) courierSelect.value = courierParam;
+      updatePhoneFieldVisibility();
+      if (phoneParam) setOtpValue(phoneParam);
+      fetchTrackingInfo(trackingNumber, courierParam || courierSelect.value, phoneParam || null);
+    } else {
+      formEl.classList.remove('hidden');
+      loadingEl.classList.add('hidden');
+    }
+
+    // Reset tracking to start fresh
+    window.resetTracking = function () {
+      containerEl.classList.add('hidden');
+      errorEl.classList.add('hidden');
+      loadingEl.classList.add('hidden');
+      formEl.classList.remove('hidden');
+      trackingInput.value = '';
+      clearOtpBoxes();
+      courierSelect.selectedIndex = 0;
+      updatePhoneFieldVisibility();
+      window.history.pushState({}, '', window.location.pathname);
+      trackingInput.focus();
+      // Scroll back to top of form
+      document.querySelector('.tracking-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    // Fade in anim
+    document.querySelector('.tracking-card').style.opacity = 0;
+    setTimeout(() => {
+      document.querySelector('.tracking-card').style.opacity = 1;
+      document.querySelector('.tracking-card').style.transform = 'translateY(0)';
+    }, 100);
+  });
+</script>
+
+<style>
+  :root {
+    --base-color: {{ block.settings.base_color }};
+    --darker-color: {{ block.settings.base_color | color_darken: 20 }};
+    --lighter-color: {{ block.settings.base_color | color_lighten: 20 }};
+    --gradient-start: {{ block.settings.base_color }};
+    --gradient-end: {{ block.settings.base_color | color_darken: 20 }};
+    --hover-color: {{ block.settings.base_color | color_darken: 10 }};
+    --accent-color: {{ block.settings.base_color | color_lighten: 10 }};
+    --button-base-color: {{ block.settings.button_color | default: '#007bff' }};
+    --button-darker-color: {{ block.settings.button_color | color_darken: 20 }};
+    --button-hover-color: {{ block.settings.button_color | color_darken: 10 }};
+    --button-gradient-start: {{ block.settings.button_color | default: '#007bff' }};
+    --button-gradient-end: {{ block.settings.button_color | color_darken: 20 }};
+    --header-logo-color: {{ block.settings.header_logo_color }};
+    --header-text-color: {{ block.settings.header_text_color }};
+  }
+
+  .container-parent {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .tracking-card {
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    padding: 0;
+    transition: all 0.3s ease;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  /* Header Styles with Dynamic Theme */
+  .tracking-header {
+    background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
+    padding: 40px 30px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tracking-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 60%);
+    pointer-events: none;
+  }
+
+  .tracking-logo {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 15px;
+  }
+
+  .tracking-logo svg {
+    width: 48px;
+    height: 48px;
+    color: var(--header-logo-color);
+  }
+
+  .tracking-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--header-text-color);
+  }
+
+  .tracking-header .subtitle {
+    opacity: 0.9;
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--header-text-color);
+  }
+
+
+  /* Form Styles */
+  .tracking-form {
+    padding: 30px;
+  }
+
+  .input-group {
+    display: flex;
+    position: relative;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #eaeaea;
+    transition: all 0.3s ease;
+  }
+
+  .input-group:focus-within {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border-color: var(--base-color);
+  }
+
+  .input-icon {
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    background: #f9f9f9;
+    color: #555;
+  }
+
+  #tracking-input {
+    flex: 1;
+    padding: 16px 20px;
+    border: none;
+    font-size: 16px;
+    outline: none;
+  }
+
+  .btn-track {
+    /* Gunakan variabel baru untuk tombol */
+    background: linear-gradient(135deg, var(--button-gradient-start) 0%, var(--button-gradient-end) 100%);
+    color: white;
+    /* Asumsi teks tombol selalu putih, bisa diubah jika perlu */
+    border: none;
+    padding: 0 30px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+  }
+
+  .btn-track:hover {
+    /* Gunakan variabel baru untuk hover tombol */
+    background: linear-gradient(135deg, var(--button-hover-color) 0%, var(--button-darker-color) 100%);
+  }
+
+  .btn-track svg {
+    transition: transform 0.3s ease;
+  }
+
+  .btn-track:hover svg {
+    transform: translateX(3px);
+  }
+
+  /* Loading & Error Styles */
+  .tracking-loading,
+  .tracking-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 30px;
+    text-align: center;
+  }
+
+  .loading-spinner {
+    margin-bottom: 20px;
+  }
+
+
+  .tracking-container svg {
+    fill: transparent !important;
+  }
+
+  .spinner {
+    width: 48px;
+    height: 48px;
+    border: 5px solid rgba(0, 0, 0, 0.1);
+    border-top-color: var(--base-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .tracking-loading p {
+    color: #555;
+    font-size: 16px;
+  }
+
+  .error-icon {
+    color: var(--base-color);
+    margin-bottom: 20px;
+  }
+
+  .tracking-error p {
+    color: #555;
+    font-size: 16px;
+    margin-bottom: 20px;
+  }
+
+  .btn-retry {
+    background: #f5f5f5;
+    color: #333;
+    border: none;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .btn-retry:hover {
+    background: #eaeaea;
+  }
+
+  /* Results Container */
+  .result-container {
+    padding: 0;
+  }
+
+  /* Package Info */
+  .package-info {
+    padding: 20px;
+  }
+
+  .info-card {
+    background: #fafafa;
+    border-radius: 12px;
+    padding: 24px;
+    position: relative;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .card-header h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+  }
+
+  .badge {
+    background: var(--lighter-color);
+    color: var(--base-color);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  /* Badge Colors (Dynamic based on status) */
+  .badge.success {
+    background: #e6f4ea;
+    /* hijau muda */
+    color: #2e7d32;
+    /* hijau tua */
+  }
+
+  .badge.progress {
+    background: #e3f2fd;
+    /* biru muda */
+    color: #1565c0;
+    /* biru */
+  }
+
+  .badge.warning {
+    background: #fff8e1;
+    /* kuning sangat muda */
+    color: #f9a825;
+    /* kuning/oranye tua */
+  }
+
+  .badge.error {
+    background: #fdecea;
+    /* merah muda */
+    color: #c62828;
+    /* merah tua */
+  }
+
+  .badge.info {
+    background: #f1f8ff;
+    /* biru abu muda */
+    color: #1976d2;
+    /* biru terang */
+  }
+
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #eee;
+  }
+
+  .info-row:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  .info-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #666;
+    font-size: 14px;
+  }
+
+  .info-value {
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+    text-transform: capitalize
+  }
+
+  .highlight {
+    /* color: var(--base-color); */
+    color: black;
+    font-weight: 700;
+  }
+
+  /* Timeline */
+  .timeline-section {
+    padding: 30px 20px;
+    background: #fff;
+  }
+
+  .timeline-section h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 24px;
+    padding-left: 10px;
+    text-align: left;
+  }
+
+  .timeline {
+    position: relative;
+    padding-left: 30px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 9px;
+    height: 100%;
+    width: 2px;
+    background: #e0e0e0;
+  }
+
+  .timeline-item {
+    position: relative;
+    padding-bottom: 30px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+
+  .timeline-item:last-child {
+    padding-bottom: 0;
+  }
+
+  .timeline-point {
+    position: absolute;
+    left: -30px;
+    top: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid var(--base-color);
+    z-index: 1;
+  }
+
+  .timeline-item.active .timeline-point {
+    background: var(--base-color);
+  }
+
+  .timeline-item.active .timeline-point::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 10px;
+    background: white;
+    border-radius: 50%;
+  }
+
+  .timeline-content {
+    background: #f9f9f9;
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  }
+
+  .timeline-date {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 6px;
+  }
+
+  .timeline-date svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .timeline-note {
+    font-size: 14px;
+    color: #333;
+    line-height: 1.5;
+  }
+
+  /* Reset section */
+  .reset-section {
+    padding: 24px 30px;
+    text-align: center;
+    border-top: 1px solid #eee;
+    grid-column: 1 / -1;
+  }
+
+  .btn-reset {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 32px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--base-color);
+    background: transparent;
+    border: 2px solid var(--base-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .btn-reset:hover {
+    background: var(--base-color);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  }
+
+  .btn-reset svg {
+    transition: transform 0.3s ease;
+  }
+
+  .btn-reset:hover svg {
+    transform: rotate(-45deg);
+  }
+
+  /* Form fields */
+  .form-field {
+    margin-bottom: 18px;
+  }
+
+  .form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #444;
+    margin-bottom: 8px;
+    padding-left: 2px;
+  }
+
+  /* Courier Select */
+  .select-wrapper {
+    position: relative;
+  }
+
+  .form-select {
+    width: 100%;
+    padding: 14px 44px 14px 16px;
+    font-size: 15px;
+    border: 1px solid #eaeaea;
+    border-radius: 12px;
+    background: #fff;
+    color: #333;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    outline: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  }
+
+  .form-select:focus {
+    border-color: var(--base-color);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+  }
+
+  .form-select optgroup {
+    font-weight: 600;
+    color: #555;
+  }
+
+  .form-select option {
+    font-weight: 400;
+    color: #333;
+    padding: 8px;
+  }
+
+  .select-arrow {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: #888;
+  }
+
+  /* Phone group animation */
+  .phone-group {
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+
+  .phone-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+    border-radius: 10px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: #fff;
+    line-height: 1.4;
+  }
+
+  .phone-notice svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: #fff;
+  }
+
+  /* OTP digit boxes */
+  .otp-container {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 4px;
+  }
+
+  .otp-box {
+    width: 52px;
+    height: 60px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: #333;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    background: #fafafa;
+    outline: none;
+    transition: all 0.2s ease;
+    caret-color: var(--base-color);
+  }
+
+  .otp-box:focus {
+    border-color: var(--base-color);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(var(--base-color), 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+  }
+
+  .otp-box:not(:placeholder-shown) {
+    border-color: var(--base-color);
+    background: #fff;
+  }
+
+  .otp-container.otp-filled .otp-box {
+    border-color: #4caf50;
+    background: #f1f8e9;
+  }
+
+  .otp-container.otp-error .otp-box {
+    animation: shake 0.4s ease;
+    border-color: #e53935 !important;
+    background: #fff5f5;
+  }
+
+  @media (max-width: 767px) {
+    .otp-container {
+      gap: 8px;
+    }
+
+    .otp-box {
+      width: 44px;
+      height: 52px;
+      font-size: 20px;
+      border-radius: 10px;
+    }
+  }
+
+  /* Full-width track button */
+  .btn-track-full {
+    width: 100%;
+    justify-content: center;
+    padding: 16px 30px;
+    border-radius: 12px;
+    margin-top: 6px;
+  }
+
+  /* Input error shake animation */
+  .input-error {
+    animation: shake 0.4s ease;
+    border-color: #e53935 !important;
+    box-shadow: 0 0 0 2px rgba(229, 57, 53, 0.15) !important;
+  }
+
+  @keyframes shake {
+
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+
+    20% {
+      transform: translateX(-6px);
+    }
+
+    40% {
+      transform: translateX(6px);
+    }
+
+    60% {
+      transform: translateX(-4px);
+    }
+
+    80% {
+      transform: translateX(4px);
+    }
+  }
+
+  /* Responsive */
+  @media (min-width: 768px) {
+    .result-container {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+    }
+
+    .package-info {
+      padding: 30px;
+    }
+
+    .timeline-section {
+      padding: 30px;
+      border-left: 1px solid #eee;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .tracking-header {
+      padding: 30px 20px;
+    }
+
+    .tracking-header h1 {
+      font-size: 24px;
+    }
+
+    .tracking-logo svg {
+      width: 40px;
+      height: 40px;
+    }
+
+    .tracking-form {
+      padding: 20px;
+    }
+
+    .input-group {
+      flex-direction: column;
+    }
+
+    .input-icon {
+      display: none;
+    }
+
+    #tracking-input {
+      border-bottom: 1px solid #eee;
+    }
+
+    .btn-track {
+      padding: 14px;
+    }
+
+    .btn-track-full {
+      padding: 14px;
+    }
+
+    .form-select {
+      font-size: 14px;
+      padding: 12px 40px 12px 14px;
+    }
+
+    .info-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .info-value {
+      padding-left: 28px;
+    }
+
+  }
+</style>
+
+{% schema %}
+{
+  "name": "Expatify Track Order",
+  "target": "section",
+  "tag": "section",
+  "class": "section",
+  "settings": [
+    {
+      "type" : "text",
+      "id" : "padding_top",
+      "label" : "Padding Top (px)",
+      "default" : "40"
+    },
+    {
+      "type" : "text",
+      "id" : "padding_bottom",
+      "label" : "Padding Bottom (px)",
+      "default" : "40"
+    },
+    {
+      "type": "text",
+      "id":"margin_top",
+      "label":"Margin Top (px)",
+      "default":"0" 
+    },
+    {
+      "type": "text",
+      "id":"margin_bottom",
+      "label":"Margin Bottom (px)",
+      "default":"0"
+    },
+    {
+      "type": "color",
+      "id": "base_color",
+      "label": "Base Theme Color",
+      "default": "#e53935"
+    },
+    {
+      "type": "color",
+      "id": "button_color",
+      "label": "Track Order Button Color",
+      "default": "#e53935"
+    },
+    {
+      "type": "color",
+      "id": "header_logo_color",
+      "label": "Header Logo Icon Color",
+      "default": "#FFFFFF"
+    },
+    {
+      "type": "color",
+      "id": "header_text_color",
+      "label": "Header Text Color (Title & Subtitle)",
+      "default": "#FFFFFF"
+    }
+  ]
+}
+{% endschema %}
