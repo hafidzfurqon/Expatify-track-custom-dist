@@ -5,7 +5,7 @@ let handler;
 export default async function (req, res) {
   try {
     if (!handler) {
-      const build = await import("../build/se`rver/index.js");
+      const build = await import("../build/server/index.js");
       handler = createRequestListener({
         build,
         mode: "production",
